@@ -1,4 +1,4 @@
-N = 1000; P = 2831; sparsity = 0.1; out_sparsity = 0.1; g_factor = 10; n_epochs = 150;
+N = 500; P = 350; sparsity = 0.1; out_sparsity = 0.1; g_factor = 10; n_epochs = 150;
 
 %%
 

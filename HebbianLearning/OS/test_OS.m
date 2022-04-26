@@ -5,6 +5,7 @@ N = 500; P = 50; sparsity = 0.1; out_sparsity = 0.1; g_factor = 10;
 eta = g_factor * 0.1^(1/4) / sqrt(N * P * sqrt(sparsity)); % synaptic weight factor
 dyn_thresh = 0.0334;
 
+
 dt = 0.1;           % time step
 T = 2;             % duration of trail
 t = 0:dt:T;         % time variable
