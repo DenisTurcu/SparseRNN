@@ -79,7 +79,7 @@ class SRNN(nn.Module):
                 rates = activation(x)  # compute the new rates
                 rates_all[:, ti] = rates.reshape(-1)
             readout[pi] = self.w_out(rates_all)
-        return readout/N
+        return readout/(f_out*N)
 
 
     def train_model(self, epochs:int = 0, 
@@ -97,6 +97,7 @@ class SRNN(nn.Module):
         P = self.P
         labels = self.labels
         stopping_accuracy = stopping_accuracy if stopping_accuracy > 0 else self.training_info['stopping_accuracy']
+        f_out = self.output_info['f_out']
 
         optimizer = torch.optim.SGD(self.parameters(), lr=lr)
 
@@ -105,14 +106,14 @@ class SRNN(nn.Module):
             if self.verbose:
                 print(f'Epoch {self.trained_epochs}.', end=' ')
             model_output = self(targets.shape[1])
-            loss = loss_function(model_output, targets, ids_plus, ids_minus, start_id)
+            loss = loss_function(model_output*f_out, targets, ids_plus, ids_minus, start_id)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
 
             # update trianing details:
             self.trained_epochs += 1
-            accuracy = ((((model_output > thresholds) * 2 - 1) * labels.reshape(-1,1) == 1).sum(0) / P).max()
+            accuracy = ((((model_output*f_out > thresholds) * 2 - 1) * labels.reshape(-1,1) == 1).sum(0) / P).max()
             if self.max_accuracy < accuracy:
                 self.max_accuracy = accuracy
             if self.max_accuracy >= stopping_accuracy:

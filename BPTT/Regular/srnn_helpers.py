@@ -11,9 +11,7 @@ import seaborn as sns
 ReLu = ReLU()
 
 ################################################################################
-################################################################################
 ################### firing rate functions with PyTorch #########################
-################################################################################
 ################################################################################
 def tanh_shifted_and_scaled2one(x, x0=-0.5):
     """ [TanH(ReLU(x)+x_0) - TanH(x_0)] / [1 - TanH(x_0)] """
@@ -37,18 +35,13 @@ def bounded_ReLu_cube(x, x_bound=2.0):
     return bounded_ReLu_Power(x, x_bound, 3)
 
 ################################################################################
-################################################################################
 ###################### Loss functions for BPTT #################################
-################################################################################
 ################################################################################
 # loss function to follow given targets
 def loss_ReLU_on_targets(**inp):
     """ Computes the loss function given target dynamics. "+" patterns need to \
 be above their target (target_dynamics[0]) and "-" patterns need to be below \
 their target (target_dynamics[1]).  """
-    #####
-    # MAY WANT TO INCLUDE SOME FORM OF TIME DISCOUNTING ....???
-    #####
     loss_plus = ReLu( inp['target_dynamics'][np.zeros(inp['ids_plus' ].shape[0])].T - inp['activity'][:,inp['ids_plus'] ]).sum()
     loss_minus= ReLu(-inp['target_dynamics'][np.ones( inp['ids_minus'].shape[0])].T + inp['activity'][:,inp['ids_minus']]).sum()
     return loss_plus + loss_minus
@@ -61,9 +54,6 @@ def loss_train_on_labels(**inp):
     """ Computes the loss based on the labels directly. Allows network to use \
 arbitrary dynamics to solve the task. Does not make network follow some \
 target dynamics """
-    #####
-    # MAY WANT TO INCLUDE SOME FORM OF TIME DISCOUNTING ....???
-    #####
     start_time_id = -inp['thresholds'].shape[0]
     loss_plus = loss_helper_train_on_labels( (inp['activity'][start_time_id:, inp['ids_plus'] ].T - inp['thresholds'])).sum()
     loss_minus= loss_helper_train_on_labels(-(inp['activity'][start_time_id:, inp['ids_minus']].T - inp['thresholds'])).sum()
@@ -72,34 +62,32 @@ target dynamics """
 
 
 ################################################################################
-################################################################################
 ############################## SRNN Class/Object ###############################
-################################################################################
 ################################################################################
 class SRNN():
     def __init__(self, 
-                  computing_mode,  # "CPU" or "GPU" modes
-                  N,  # number of neurons in the SRNN
-                  connections_denseness,  # percentage of existing connections, among the possible N^2
-                  alpha,  # P / (denseness * N^2) -> overwritten if P is provided
-                  targets,  # readout activity targets
-                  P=None,  # number of patterns to store
+                  computing_mode,               # "CPU" or "GPU" modes
+                  N,                            # number of neurons in the SRNN
+                  connections_denseness,        # percentage of existing connections, among the possible N^2
+                  alpha,                        # P / (denseness * N^2) -> overwritten if P is provided
+                  targets,                      # readout activity targets
+                  P=None,                       # number of patterns to store
                   readout_requires_grad=False,  # choose whether readout weights are trained or not
-                  learning_rate=0.15,  # learning rate for the autograd optimizer
+                  learning_rate=0.15,           # learning rate for the autograd optimizer
                   firing_rate_function=(lambda x: tanh_shifted_and_scaled2one(x, -0.5)),  # non-linearity of the network dynamics
                   loss_function=loss_ReLU_on_targets,  # loss function that BPTT uses
-                  E_to_I_neurons_ratio=None,  # ratio between number of E neurons and I neurons in the recurrent network
-                  readout_regularization=0.5,  # regularization for the readout weights
+                  E_to_I_neurons_ratio=None,    # ratio between number of E neurons and I neurons in the recurrent network
+                  readout_regularization=0.5,   # regularization for the readout weights
                   initialization_type_for_J='random',  # initialization type for recurrent connections: "random" or "covariance"
-                  N_epochs=200,  # number of training epochs
-                  do_plot=0,  # choose whether to do plots, and select period in terms of epochs
-                  dt=0.1,  # time constant of the dynamics
-                  ON_time=10,  # how many time steps "dt" the input stays ON
-                  x_init=None,  # initial starting point for the internal dynamics: "zeros" or normaly distributed
-                  readout_sparse_thresh=0.1,  # threshold for the readout weights to be considered non-zero
-                  classification_thresh=None,  # neural activity based desired classification threshold
+                  N_epochs=200,                 # number of training epochs
+                  do_plot=0,                    # choose whether to do plots, and select period in terms of epochs
+                  dt=0.1,                       # time constant of the dynamics
+                  ON_time=10,                   # how many time steps "dt" the input stays ON
+                  x_init=None,                  # initial starting point for the internal dynamics: "zeros" or normaly distributed
+                  readout_sparse_thresh=0.1,    # threshold for the readout weights to be considered non-zero
+                  classification_thresh=None,   # neural activity based desired classification threshold
                   readout_projection_type='binary',  # type of projection for the learned readout weights: "binary" -> 0/1, "ternary" -> -1/0/1
-                  total_time_multiple=2,  # factor that multiplies total training time so that testing is extended over longer times
+                  total_time_multiple=2,        # factor that multiplies total training time so that testing is extended over longer times
                   sparse_readout_mask=None,
                   store_history=[], # store history of given variable names: 
                                     # "losses"                              : Ne
@@ -230,7 +218,7 @@ class SRNN():
         # define the readout weights
         self.W_out = torch.ones([1,self.N], requires_grad=readout_requires_grad) if self.neurons_type is None else self.neurons_type.clone().detach().requires_grad_(readout_requires_grad)
 
-        # define input ON/OFF step function (roughly the input weights)
+        # define input ON/OFF step function
         self.W_in = torch.zeros(self.N_time_steps-1)
         self.W_in[:self.ON_time] = 1
 
@@ -277,10 +265,6 @@ class SRNN():
 
         # define the binary readout weights
         self.binary_W_out = None
-
-        # print information about the created object
-        if self.verbose: self.print_info()
-        pass
 
 
     def train(self):
@@ -384,53 +368,9 @@ class SRNN():
             W_out_actual = self.compute_actual_W_out()
 
             if 'losses' in self.store_history: self.losses[ei] = loss.data.cpu().numpy()  # store the loss value
-            end_BP_time = time.time()  # time the BPTT step
+            end_BP_time = time.time()  # time the BPTT step            
 
-
-
-            # plot relevant figures
-            # "and" opperation stops if first argument is false - important for self.do_plot being 0
-            if self.do_plot and ((ei+1) % self.do_plot == 0):
-                fig, axs = plt.subplots(4,4, figsize=(28,28))
-                if 'losses' in self.store_history: 
-                    self.plot_loss(axs[0,0])
-                else:
-                    axs[0,0].axis('off')
-                self.plot_readout_activity(readout_activity.data.cpu().numpy(), 
-                                           thresh, axs[1,0])
-                self.plot_readout_activity(readout_activity_proj_W_out.data.cpu().numpy(), 
-                                           thresh_proj, axs[1,1],
-                                           extra_title='Projected Readout Weights')
-                if 'accuracy_history' in self.store_history: 
-                    self.plot_best_accuracy_in_time(self.accuracy_history, axs[2,0])
-                else:
-                    axs[2,0].axis('off')
-                if 'accuracy_history_proj_W_out' in self.store_history:
-                    self.plot_best_accuracy_in_time(self.accuracy_history_proj_W_out, axs[2,1],
-                                                    extra_title='Projected Readout Weights')
-                else:
-                    axs[2,1].axis('off')
-                self.plot_J_values(J_actual.data.cpu().numpy(), axs[0,1])
-                self.plot_W_out_weights(self.W_out.data.cpu().numpy(), W_out_actual.data.cpu().numpy(), axs[0,2])
-                if 'readout_sparsity' in self.store_history:
-                    self.plot_readout_sparsity(axs[0,3])
-                else:
-                    axs[0,3].axis('off')
-                self.plot_PCA_of_given_variable([0,1], rates_all.data.cpu().numpy()[-1], 'PCA Of Firing Rates At Final Time', axs[1,2])
-                self.plot_PCA_of_given_variable([1,2], rates_all.data.cpu().numpy()[-1], 'PCA Of Firing Rates At Final Time', axs[1,3])
-
-                self.plot_PCA_of_given_variable([0,1], readout_activity.data.cpu().numpy().T, 'PCA Of Readout Activity Timeseries', axs[2,2])
-                self.plot_PCA_of_given_variable([1,2], readout_activity.data.cpu().numpy().T, 'PCA Of Readout Activity Timeseries', axs[2,3])
-                self.plot_readout_activity_violin(readout_activity.data.cpu().numpy(), 
-                                                  thresh, ax=axs[3,0])
-                self.plot_readout_activity_violin(readout_activity_proj_W_out.data.cpu().numpy(), 
-                                                  thresh_proj, ax=axs[3,1], extra_title='Projected Readout Weights')
-                axs[3,2].axis('off')
-                axs[3,3].axis('off')
-                plt.draw()
-                plt.pause(0.01)
-
-            if self.verbose: print('Current accuracy: (%.1f%%, %.1f%%).' % (np.max(accuracy), np.max(accuracy_proj)))
+            if self.verbose: print('Current accuracy: %.1f%%.' % (np.max(accuracy)))
             print('Epoch %d time: %.2fs, Dynamics time: %.2fs, BP time: %.2fs.' 
                     %(ei, time.time() - current_epoch_time, end_dynamics_time - start_dynamics_time, end_BP_time - start_BP_time))
 
@@ -505,12 +445,7 @@ class SRNN():
         return final_accuracy, final_accuracy_proj, discrimination_thresh, discrimination_thresh_proj
 
 
-    def run_post_training(self, time_multiple):
-        return self.prepare_for_tests(time_multiple)
-
-
-    def test(self, sigma_patterns=0.0, sigma_neurons=0.0, pattern_repeats=1,
-             neurons_noise_type='simple'):
+    def test(self, sigma_patterns=0.0, sigma_neurons=0.0, pattern_repeats=1):
         """ Test the performance of the current instance of the SRNN. """
         if not self.training_completed:
             raise ValueError('This SRNN instance has not been trained. Train it before testing.')
@@ -535,16 +470,7 @@ class SRNN():
                 # run the netork for current pattern for the total duration
                 for ti in range(1, self.N_time_steps_test):  # "ti" is time index
                     # network dynamics equation with the appropriate type of dynamics noise
-                    if neurons_noise_type=='simple':
-                        x = x + torch.normal(0, sigma_neurons+1e-20, [self.N]) + self.dt*(-x + self.trained_J @ rates + self.W_in_test[ti-1] * (self.patterns[:,pi]+displacements[:,pi]))
-                    elif neurons_noise_type=='self_neuron_noise':
-                        raise NotImplementedError('"self_neuron_noise" value for the variable "neurons_noise_type" not yet implemented.')
-                    elif neurons_noise_type=='weights_noise':
-                        raise NotImplementedError('"weights_noise" value for the variable "neurons_noise_type" not yet implemented.')
-                    elif neurons_noise_type=='all_noise':
-                        raise NotImplementedError('"all_noise" value for the variable "neurons_noise_type" not yet implemented.')
-                    else:
-                        raise ValueError('The variable "neurons_noise_type" must be "simple", "self_neuron_noise", "weights_noise" or "all_noise".')                        
+                    x = x + torch.normal(0, sigma_neurons+1e-20, [self.N]) + self.dt*(-x + self.trained_J @ rates + self.W_in_test[ti-1] * (self.patterns[:,pi]+displacements[:,pi]))                       
 
                     rates = self.activation(x)  # compute the new rates
                     rates_all[ti,pi] = rates  # store the new rates
@@ -584,217 +510,4 @@ class SRNN():
         output_label = 2 * (readout_activity_numpy > thresh) - 1  # compute the predicted label for each pattern
         accuracy = 100*np.sum((output_label * self.labels.T)>0,0)/self.P  # compute the accuracy
         return accuracy, thresh
-
-
-    def print_info(self):
-        """ Printing function to show info about the current SRNN instance. """
-        print('SRNN initialized:')
-        print('     Computing mode: %s%s' % (self.mode[:3],'' if self.mode=='CPU' else ', ID %d' % self.gpu_id))
-        print('     Number of neurons: %d. Denseness of connections: %.3f.' % (self.N, self.f))
-        print('     Ratio between number of E neurons and number of I neurons: %.1f.' % (np.nan if self.E_to_I_ratio is None else self.E_to_I_ratio))
-        print('     Number of patterns: %d. Alpha ratio: %.4f' % (self.P, self.alpha))
-        print('     Training epochs: %d.' % self.N_epochs)
-        print('     Time step: %.2f. Stimulus ON time: %.1f. Total time: %.1f.'
-            % (self.dt, self.ON_time*self.dt, self.N_time_steps*self.dt))
-        print('     Activation function documentation:\n        "%s".' % self.activation.__doc__)
-        print('     Loss function documentation:\n        "%s".' % self.loss_function.__doc__)
-        return
-
-
-
-    # plotting functions for each type of plot
-    def plot_loss(self, ax=None):
-        if ax is None:
-            fig, ax = plt.subplots()
-        if 'losses' not in self.store_history:
-            ax.axis('off')
-            print('Losses history was not stored.')
-            return
-        ax.plot(self.losses)
-        ax.set_title('Loss', fontsize=15)
-        ax.set_xlabel('Epoch #', fontsize=15)
-        ax.set_ylabel('Loss Value', fontsize=15)
-        ax.set_ylim(0,np.nanmax(self.losses)*1.05)            
-        return
-
-
-    def plot_readout_activity(self, readout_activity, 
-                              actual_classification_thresholds, 
-                              ax=None, extra_title=''):
-        if ax is None:
-            fig, ax = plt.subplots()        
-        ax.plot([self.ON_time, self.ON_time], 
-                [np.min(readout_activity), np.max(readout_activity)], 'yellow', linewidth=2)
-        ax.plot(self.targets.data.cpu().numpy().T, '-k', linewidth=2)
-        ax.plot(readout_activity[:,self.ids_positive_label], 'r', alpha=0.6, linewidth=0.3)
-        ax.plot(readout_activity[:,self.ids_negative_label], 'b', alpha=0.6, linewidth=0.3)
-        ax.scatter(np.arange(len(actual_classification_thresholds)), 
-                   actual_classification_thresholds, marker='4', s=500, c='orange')
-        ax.scatter(np.arange(readout_activity.shape[0]-len(self.classification_thresh), readout_activity.shape[0]),
-                   self.classification_thresh.data.cpu().numpy(), marker='4', s=500, c='green')
-        ax.set_title('Readout Activity by pattern type (B+, R-)\nBlack lines are targets%s' % ('\n'+extra_title), fontsize=15)
-        ax.set_xlabel('Time Steps (int)', fontsize=15)
-        ax.set_ylabel('Readout Activity for each pattern', fontsize=15)
-        ax.set_xlim([0,readout_activity.shape[0]-1])
-        ax.set_ylim([np.min(readout_activity), np.max(readout_activity)])
-        ax.set_xticks(np.arange(0,readout_activity.shape[0]+1,2))
-        ax.grid(linewidth=0.1)
-        return
-
-
-    def plot_readout_activity_violin(self, readout_activity, 
-                                     actual_classification_thresholds,
-                                     labels=None, extra_title='', ax=None):
-
-        readout_activity = temp_readout_activity if readout_activity is None else readout_activity
-        actual_classification_thresholds = temp_actual_classification_thresholds if actual_classification_thresholds is None else actual_classification_thresholds
-        labels = self.labels[0] if labels is None else labels
-
-        readout_activity_df = pd.DataFrame(readout_activity).stack().to_frame(name='readout_activity')
-        readout_activity_df = readout_activity_df.reset_index()
-        readout_activity_df = readout_activity_df.rename(columns={'level_0':'Time Steps', 'level_1':'Pattern Label'})
-        readout_activity_df['Pattern Label'] = readout_activity_df['Pattern Label'].map(lambda x: labels[x])
-
-        ax = sns.violinplot(x='Time Steps', y='readout_activity', hue='Pattern Label',
-                   data=readout_activity_df, palette=['r','b'], split=True, inner="quartile", ax=ax)
-        ax.scatter(np.arange(len(actual_classification_thresholds)), 
-                   actual_classification_thresholds, marker='4', s=500, c='orange')
-        ax.set_xlabel('Time steps (int)', fontsize=15)
-        ax.set_ylabel('Readout activity', fontsize=15)
-        ax.set_title('Readout Activity by pattern type (B+, R-)%s' % ('\n'+extra_title), fontsize=15)
-        # ax.set_xlim([0,readout_activity.shape[0]-1])
-        ax.set_ylim([np.min(readout_activity), np.max(readout_activity)])
-        ax.set_xticks(np.arange(0,readout_activity.shape[0]+1,2))
-        ax.set_xticklabels(np.arange(0,readout_activity.shape[0]+1,2))
-        ax.grid(linewidth=0.2)
-        return
-
-
-    def plot_best_accuracy_in_time(self, accuracy_history_selected, ax=None, extra_title=''):
-        c_map = plt.get_cmap('gist_ncar')  # colormap for observing accuracy epoch
-        norm = Normalize(vmin=0, vmax=1)  # normalizer for the colormapplt.figure(fig_num)
-        if ax is None:
-            fig, ax = plt.subplots()
-        ax.grid()
-        ax.set_xlim([0,accuracy_history_selected.shape[1]-1])
-        ax.set_ylim(45,100.5)
-        ax.set_title('Best Accuracy in time per Epoch (colorbar)%s' % ('\n'+extra_title), fontsize=15)
-        for ei, aa in enumerate(accuracy_history_selected):
-            ax.plot(aa, color=c_map(norm(1-ei/self.N_epochs)))
-        ax.plot([self.ON_time, self.ON_time], [0, 100], 'yellow', linewidth=2)
-        if accuracy_history_selected.shape[1] > self.N_time_steps:
-            ax.plot([self.N_time_steps-1, self.N_time_steps-1], [0, 100], 'orange', linewidth=2)
-        ax.set_ylabel('Accuracy (%)', fontsize=15)
-        ax.set_xlabel('Time Steps (int)', fontsize=15)
-        cbar = plt.colorbar(cm.ScalarMappable(norm=norm, cmap=plt.get_cmap('gist_ncar_r')), ax=ax)
-        cbar.set_ticks(np.arange(0,1.001,1./8))
-        cbar.set_ticklabels(np.int16(np.arange(0,1.001,1./8)*self.N_epochs))
-        ax.set_xticks(np.arange(0,self.N_time_steps+1,2))
-        pass
-
-    
-    def plot_W_out_weights(self, W_out, W_out_actual, ax=None):
-        W_out        = W_out.reshape(-1)
-        W_out_actual = W_out_actual.reshape(-1)
-        if ax is None:
-            fig, ax = plt.subplots()
-        readout_neuron_type = self.project_readout_np(W_out) if self.neurons_type is None else self.project_readout(self.neurons_type).cpu().detach().numpy().reshape(-1)
-        # ax.plot(np.maximum(W_out * readout_neuron_type,0)/W_out, 'bo', markersize=5)
-        ax.plot(readout_neuron_type, 'bo', markersize=5)
-        ax.plot(W_out, 'r*', markersize=8)
-        ax.plot(W_out_actual, 'g+', markersize=10)
-        ax.plot(np.array([np.arange(self.N),np.arange(self.N)]),
-                np.array([np.maximum(W_out_actual * readout_neuron_type,0)/W_out, 
-                          W_out]))
-        ax.plot([0,self.N],[0,0])
-        ax.set_xlabel('Neuron ID', fontsize=15)
-        ax.set_ylabel('Readout Synapse Weight', fontsize=15)
-        pass
-
-
-    def plot_readout_sparsity(self, ax=None):
-        if ax is None:
-            fig, ax = plt.subplots()
-        ax.plot(self.readout_sparsity)
-        ax.set_title('Readout Sparsity', fontsize=15)
-        ax.set_xlabel('Epoch #', fontsize=15)
-        ax.set_ylabel('Sparsity Value', fontsize=15)
-        ax.set_ylim(np.nanmin(self.readout_sparsity)-0.01,np.nanmax(self.readout_sparsity)+0.01)
-        pass
-    
-
-    def plot_J_values(self, J=None, ax=None):
-        if ax is None:
-            fig, ax = plt.subplots()
-        J = self.J_history[-1] if J is None else J
-        lim = np.max(np.abs([J.min(), J.max()]))
-        ax.imshow(J, cmap='bwr', vmin=-lim, vmax=lim)
-        ax.set_xlabel('Pre-synaptic Neuron ID', fontsize=15)
-        ax.set_ylabel('Post-synaptic Neuron ID', fontsize=15)
-        pass
-
-
-    def plot_PCA_of_given_variable(self, pcs_to_show=[0,1], variable=None, plot_title=None, ax=None):
-        if ax is None:
-            fig, ax = plt.subplots()
-            
-        if variable is None:
-            variable = self.rates_all_history[-1,-1]
-            plot_title = 'PCA Of Firing Rates At Final Time'
-
-        pca = PCA(n_components=(np.max(pcs_to_show)+1))
-        variable = pca.fit_transform(variable)
-        ax.scatter(variable[self.ids_positive_label,pcs_to_show[0]], 
-                   variable[self.ids_positive_label,pcs_to_show[1]], c='b')
-        ax.scatter(variable[self.ids_negative_label,pcs_to_show[0]], 
-                   variable[self.ids_negative_label,pcs_to_show[1]], c='r')
-        ax.set_title(plot_title, fontsize=15)
-        ax.set_xlabel('PC %d' % pcs_to_show[0], fontsize=15)
-        ax.set_ylabel('PC %d' % pcs_to_show[1], fontsize=15)
-        pass
-
-
-################################################################################
-################################################################################
-#### implement a 0/1 "sparse" perceptron as in Baldassi, Braunstein paper: ##
-#### "Efficient supervised learning in networks with binary synapses" 4/6  #####
-################################################################################
-################################################################################
-def binary_perceptron(patterns, labels, hidden=None, activity_threshold=.15, error_threshold=1.0, max_iter=10000):
-    N = patterns.shape[0]  # number of neurons
-    P = patterns.shape[1]  # number of patterns
-    h = np.ones(N) if hidden is None else hidden  # initial hidden states for each weight
-    w = (np.sign(h)+1)/2  # initial weights
-    theta = activity_threshold * N
-    theta_m = error_threshold
-    
-    count = 0
-    while count < max_iter:
-        patterns_order = np.random.permutation(P)
-        pat_correct = 0
-        for i in range(P):
-            pi = patterns_order[i]
-            pat = patterns[:,pi]
-            sig = labels[0, pi]
-            
-            current = pat.dot(w)
-            delta = sig * (current - theta)
-            
-            if delta <= 0:
-                h += 2 * sig * pat 
-            elif delta <= theta_m:
-                pat_correct += 1
-                if sig == -1:
-                    if np.random.rand() < 0.4:
-                        h -= 2 * pat
-            else:
-                pat_correct += 1
-                
-            w = (np.sign(h)+1)/2
-        if pat_correct == P:
-            print('All patterns correctly classified; ', end='')
-            break
-        count += 1
-    print('Max_Iter reached; ', end='')
-    return w, h
 
