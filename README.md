@@ -5,7 +5,7 @@ The BPTT Python + Pytorch simulations, Hebbian Learning Matlab simulations and D
 ## BPTT
 The "Regular" code works via sparsity and EI architecture Mask, while the "SpeedUp" code works via PyTorch sparse tensors.
 ### Regular
-
+The Example.ipynb file contains an example of an E-I split architecture network trained for a short amount of time. This network has the same number of E and I neurons. The post-training accuracy in time, before, during and after the training period is shown.
 
 ### SpeedUp
 The Example.ipynb file contains an example of a network trained for a short amount of time. The readout changes after training to separate the two classes, and the accuracy decays outside the training period. All other code files in this folder are the basis of the Sparse RNN model and training.
