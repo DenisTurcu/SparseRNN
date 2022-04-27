@@ -79,7 +79,7 @@ class SRNN(nn.Module):
                 rates = activation(x)  # compute the new rates
                 rates_all[:, ti] = rates.reshape(-1)
             readout[pi] = self.w_out(rates_all)
-        return readout/(f_out*N)
+        return readout/N
 
 
     def train_model(self, epochs:int = 0, 
