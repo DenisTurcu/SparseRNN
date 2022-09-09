@@ -20,11 +20,12 @@ class SRNN(nn.Module):
                                            	 GPU=0), 
                        input_info:dict = dict(alpha=0.5,
                                               P=None,
-                                              ON_time=10,), 
+                                              ON_time=10,
+                                              f_in=1,), 
                        output_info:dict = dict(targets=torch.zeros(20),
                                                learn_readout=False,
                                                start_id=10,
-                                               f_out=0.05,), 
+                                               f_out=0.1,), 
                        training_info:dict = dict(learning_rate=0.1,
                                                  loss_fn=LossTargets(),
                                                  N_epochs=200,), 
@@ -63,13 +64,14 @@ class SRNN(nn.Module):
         patterns = self.patterns
         ON_time = self.input_info['ON_time']
         activation = self.init_info['activation']
+        f_in  = self.input_info['f_in']
         f_out = self.output_info['f_out']
 
         # run the network through all the patterns
         readout = torch.Tensor(P, N_time_steps)
         for pi in range(P):  # "pi" is pattern index
             rates_all = torch.Tensor(N, N_time_steps)
-            x = torch.zeros(N,1)   # initialize activity
+            x = torch.zeros(N,1)  # self.x_init  # initialize activity
             rates = activation(x)  # compute initial rates
 
             # run the netork for current pattern for the total duration
@@ -78,8 +80,8 @@ class SRNN(nn.Module):
                 x = x + dt*(-x + self.J(rates) + input_current)  # network dynamics equation
                 rates = activation(x)  # compute the new rates
                 rates_all[:, ti] = rates.reshape(-1)
-            readout[pi] = self.w_out(rates_all)
-        return readout/(f_out*N)
+            readout[pi] = self.w_out(rates_all) 
+        return readout/(f_in * f_out * N)
 
 
     def train_model(self, epochs:int = 0, 
@@ -97,7 +99,6 @@ class SRNN(nn.Module):
         P = self.P
         labels = self.labels
         stopping_accuracy = stopping_accuracy if stopping_accuracy > 0 else self.training_info['stopping_accuracy']
-        f_out = self.output_info['f_out']
 
         optimizer = torch.optim.SGD(self.parameters(), lr=lr)
 
@@ -170,18 +171,19 @@ class SRNN(nn.Module):
 
         N = self.init_info['N']
         f = self.init_info['f']
+        f_in = self.input_info['f_in']
 
         # adjust the number of patterns to be stored P according to the chosen 
         # alpha value, unless P is specifically chosen; in the latter case, 
-        # modify alpha for consistency
+        # modify alpha to achieve consistency
         P = self.input_info['P']
         self.P = P
         alpha = self.input_info['alpha']
         if self.input_info['P'] is None:
-            self.P = max(int(alpha * f * (N**2)), 1)
+            self.P = max(int(alpha * f_in * f * (N**2)), 1)
             P = self.P
         else:
-            self.alpha = P / (f * (N**2))
+            self.alpha = P / (f_in * f * (N**2))
 
         # initial synaptic strengths
         self.g = 10 * 0.1**(1/4) / np.sqrt(N * P * np.sqrt(f))
@@ -191,6 +193,10 @@ class SRNN(nn.Module):
 
         # define the P random patterns and their random label
         self.patterns = torch.tensor(2 * np.random.rand(N,P) - 1)
+        if f_in < 1:
+            # self.off_inputs = np.random.permutation(N)[:int(N * f_in)]
+            self.off_inputs = np.random.permutation(N)[int(N * f_in):]
+            self.patterns[self.off_inputs] = 0
         self.labels = 2 * torch.randint(0,2,(1,P)) - 1
         self.ids_positive_label = torch.where(self.labels== 1)[1]  # index location of "+" patterns
         self.ids_negative_label = torch.where(self.labels==-1)[1]  # index location of "-" patterns
