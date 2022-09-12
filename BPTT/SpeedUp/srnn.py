@@ -30,7 +30,7 @@ class SRNN(nn.Module):
                                                  loss_fn=LossTargets(),
                                                  N_epochs=200,), 
                        history_info:dict = dict(losses=[],
-                                                acuracy=[],
+                                                accuracy=[],
                                                 readout=[],
                                                 etc='each key will have the history of what it means',)) -> None:
         super(SRNN, self).__init__()
